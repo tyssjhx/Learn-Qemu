@@ -109,7 +109,7 @@ setjmp->while(!cpu_handle_exception)->while(!cpu_handle_interruption)->tb_find->
 
 ``qemu -d op filename`` 可以输出tcg
 
-<img src="E:\课程\Qemu Souce Code\Learn-Qemu\figures\tb_find.png" alt="tb_find" style="zoom: 50%;" />
+<img src=".\figures\tb_find.png" alt="tb_find" style="zoom: 50%;" />
 
 接下来仔细读一下``tb_lookup__cpu_state``，重点看查找tb的过程，以及缓存、哈希表是怎么组织的；仔细读一下函数``tb_gen_code``，重点查看由原代码生成tcg代码的过程。看一下函数``tb_add_jump``，了解tb之间的链接是怎么建立的。
 
@@ -117,7 +117,7 @@ setjmp->while(!cpu_handle_exception)->while(!cpu_handle_interruption)->tb_find->
 
 读``tb_lookup__cpu_state``
 
-<img src="E:\课程\Qemu Souce Code\Learn-Qemu\figures\tb_lookup__cpu_state.png" alt="tb_lookup__cpu_state" style="zoom:50%;" />
+<img src=".\figures\tb_lookup__cpu_state.png" alt="tb_lookup__cpu_state" style="zoom:50%;" />
 
 可以由cpu访问到cache的头指针，查找cache可以用``atomic_rcu_read``，更改cache可以用``atomic_set``，cache应该是简单地由数组组织起来的。问题：cache的初始化？cpu的初始化？
 
