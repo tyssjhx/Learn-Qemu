@@ -136,7 +136,47 @@ setjmp->while(!cpu_handle_exception)->while(!cpu_handle_interruption)->tb_find->
 
 这里可以补一下x86内存管理机制。
 
+
+
+2020/11/06补一下IA-32的内存管理机制。
+
+
+
+
+
 <div style="font-size:3em; text-align:right;">2020.11.05</div>
+
+<img src=".\figures\tb_htable_lookup.png" alt="tb_htable_lookup" style="zoom:50%;" />
+
+``tb_htable_lookup``函数用来在哈希表中查找对应的tb，这里计算了一个``phys_pc``，猜测``pc``是GVA，``phys_pc``是GPA。
+
+``phys_pc``==-1是说明找不到物理地址？仔细看一下``get_page_addr_code``，看看地址管理。
+
+最后用了函数``tb_htable_lookup``来在哈希表中查找tb。
+
+参数``tb_ctx``是一个全局变量，``tb_lookup_cmp``是一个比较函数。
+
+
+
+<div style="font-size:3em; text-align:right;">2020.11.09</div>
+
+搞清楚``struct TBContext``的结构。
+
+<img src=".\figures\struct TBContext.png" alt="struct TBContext" style="zoom:50%;" />
+
+``htable``中最重要的部分应该是``struct qht_map *map``了，``map``有哈希桶头指针，可以通过偏移访问到hash值对应的哈希桶，其中``n_buckets``指明了有目前哈希桶的个数，为了防止溢出，使用了``return &map->buckets[hash & (map->n_buckets - 1)];``的方式来根据哈希值访问对应的哈希桶。
+
+``qht_lookup_custom``
+
+<img src=".\figures\qht_lookup_custom.png" alt="qht_lookup_custom" style="zoom:50%;" />
+
+
+
+
+
+
+
+
 
 
 
@@ -144,3 +184,4 @@ setjmp->while(!cpu_handle_exception)->while(!cpu_handle_interruption)->tb_find->
 
 把宏观微观联系起来，在微观中找到宏观特点的所指。
 
+数据结构+算法
