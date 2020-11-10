@@ -166,15 +166,63 @@ setjmp->while(!cpu_handle_exception)->while(!cpu_handle_interruption)->tb_find->
 
 ``htable``中最重要的部分应该是``struct qht_map *map``了，``map``有哈希桶头指针，可以通过偏移访问到hash值对应的哈希桶，其中``n_buckets``指明了有目前哈希桶的个数，为了防止溢出，使用了``return &map->buckets[hash & (map->n_buckets - 1)];``的方式来根据哈希值访问对应的哈希桶。
 
-``qht_lookup_custom``
+函数``qht_lookup_custom``
 
 <img src=".\figures\qht_lookup_custom.png" alt="qht_lookup_custom" style="zoom:50%;" />
 
+重点函数是``qht_do_lookup``，先利用这个函数寻找一个tb，之后应该是同步的操作，不是很清楚，当同步出现问题，最后用函数``qht_lookup__slowpath(b, func, userp, hash)``再次查找。
+
+问题：**Qemu同步机制是怎么实现的**？
+
+看一下``qht_do_lookup``函数
+
+<img src=".\figures\qht_do_lookup.png" alt="qht_do_lookup" style="zoom:50%;" />
+
+
+
+主题由两个循环组成，第一个循环沿着哈希桶组成的列表向后查找，第二个循环再在每个哈希桶中以哈希值为判断标准进行查找。
+
+几个问题：
+
+1. 这里接在*head后的哈希桶与之前查找的在数组中（线性地址排列）的哈希桶的区别？
+
+   猜测：同一个列表中的桶中的项有同样的``hash & (map->n_buckets - 1)``值，线性地址排列的桶属于不同列表，有不同的``hash & (map->n_buckets - 1)``值。
+
+2. 每个哈希桶中不同为什么还会有不同哈希值的项？
+
+   猜测：应该是因为填入时也是按照这个规则映射的``&map->buckets[hash & (map->n_buckets - 1)]``
+
+证实的话应该要看哈希表的填入过程。
+
+``qht_lookup__slowpath(b, func, userp, hash)``函数的实现也利用了``qht_do_lookup``
+
+<div style="font-size:3em; text-align:right;">2020.11.10</div>
+
+<img src=".\figures\qht_lookup__slowpath.png" alt="qht_lookup__slowpath" style="zoom:50%;" />
+
+``qht_lookup__slowpath``基本上是把之前的一次查找过程加了个do_while的循环，注释里有这样的几行字
+
+```
+    /*
+     * Removing the do/while from the fastpath gives a 4% perf. increase 	  * when running a 100%-lookup microbenchmark.
+     */
+```
+
+应该是说这样写会有性能提升？
 
 
 
 
 
+
+
+终于回到了函数``tb_find``，接着读``tb_gen_code``，这个函数的功能是如果没有找到tb，级第一次执行这个tb块，就进行翻译，并返回一个tb。
+
+进入这个函数之前和出这个函数之后在函数``tb_find``之中分别用了``mmap_lock``和``mmap_unlock``函数。
+
+看一下函数``tb_gen_code``
+
+这个函数好长有二百多行，慢慢看吧。
 
 
 
@@ -185,3 +233,4 @@ setjmp->while(!cpu_handle_exception)->while(!cpu_handle_interruption)->tb_find->
 把宏观微观联系起来，在微观中找到宏观特点的所指。
 
 数据结构+算法
+
