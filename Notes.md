@@ -224,7 +224,82 @@ setjmp->while(!cpu_handle_exception)->while(!cpu_handle_interruption)->tb_find->
 
 这个函数好长有二百多行，慢慢看吧。
 
+``get_page_addr_code``函数之前也出现过，没有深挖，之后可以仔细看一下？
 
+注释里的``insn``是指令的意思。
+
+cflags每个位都什么意思啊，还有cpu结构体里面每个域都什么意思啊
+
+惊现``go to``语句
+
+
+
+<div style="font-size:3em; text-align:right;">2020.11.11</div>
+
+还是先看一下``struct TranslationBlock``吧，之前有看过师兄写的介绍，但好像因为Qemu版本不一样结构体也不太一样了，再整理一下吧
+
+先看一下函数``tcg_tb_alloc``
+
+它的功能是为即将要翻译的tb分配内存空间。
+
+tb结构的内存空间``struct TranslationBlock``和代码(中间代码、翻译过的代码？)的内存空间？
+
+问题：tb之间的连接是怎么样的？
+
+之前已经知道了tb会被挂到``tb_jmp_cache``与``tb_htable``上面。
+
+那么tb之间的连接是怎么样的？
+
+<img src=".\figures\ROUND_UP.png" alt="image-20201111152459905" style="zoom:50%;" />
+
+``#define ROUND_UP(n,d) (((n) + (d) - 1) & -(0 ? (n) : (d)))``
+
+ROUND_UP宏的作用是向上取整，第一个参数n是想要取整的数，第二个参数d说明是多少进制下的取整。
+
+<img src=".\figures\tcg_tb_alloc.png" alt="tcg_tb_alloc" style="zoom:50%;" />
+
+感觉tb的组织、分配也有很多东西可以看，这里的``tcg_rgion_alloc``也可以深挖一下，这里先放过（先把常规情况走一遍），之前的`` get_page_addr_code``函数也没有向下看，在这里标记一下。
+
+
+
+<div style="font-size:3em; text-align:right;">2020.11.13</div>
+
+昨天咸鱼了一天，今天来继续看代码吧。
+
+``tcg_func_start``函数主要是改变了一些``tcg_ctx``里的变量值，应该是为之后做准备吧。
+
+``gen_intermediate_code``函数开始进入翻译阶段了。
+
+翻译过程凭空想象的话，感觉首先要找到源代码，然后翻译为IR，之后还要放到准备好的空间中，看看具体是怎么操作的吧。
+
+``gen_intermediate_code``函数申请了一个临时变量`` DisasContext dc``，之后就调用函数``translator_loop``。这里有架构相关的东西了，不同架构传入函数``translator_loop``的第一个参数是不一样的，i386下就是``&i386_tr_ops``，mips下就是``&mips_tr_ops``，``i386_tr_ops``和``mips_tr_ops``的类型都是``static const TranslatorOps``结构，这个结构中的每个域都是一个函数指针，``i386_tr_ops``和``mips_tr_ops``两个变量每个域初始化的函数指针的值不一样。感觉这样可以增加代码的可扩展性。
+
+````c
+void gen_intermediate_code(CPUState *cpu, TranslationBlock *tb, int max_insns)
+{
+    DisasContext dc;
+
+    translator_loop(&i386_tr_ops, &dc.base, cpu, tb, max_insns);
+}
+````
+
+````c
+static const TranslatorOps i386_tr_ops = {
+    .init_disas_context = i386_tr_init_disas_context,
+    .tb_start           = i386_tr_tb_start,
+    .insn_start         = i386_tr_insn_start,
+    .breakpoint_check   = i386_tr_breakpoint_check,
+    .translate_insn     = i386_tr_translate_insn,
+    .tb_stop            = i386_tr_tb_stop,
+    .disas_log          = i386_tr_disas_log,
+};
+````
+
+进入函数
+
+函数``translator_loop``是一个翻译过程的通用流程，不同架构都调用这个函数进行翻译。
+
+函数``translator_loop``函数，以及``i386_tr_ops``里的几个函数是重点，不过有点复杂啊这个函数。
 
 
 
